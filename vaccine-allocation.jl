@@ -34,6 +34,9 @@ N = length(Return[1])
 # p_j = probability that return of ith asset on jth day
 Probability = [1/N for i in range(1, N, step=1)]
 
+
+
+
 model = Model(Clp.Optimizer)
 
 # x - amount of each portfolio asset
