@@ -7,8 +7,6 @@ for filename in readdir("./Data/")
     Infection[chop(filename, tail=4)] = CSV.read("./Data/$(filename)")
     global count = count+1
 end
-println("files read in")
-println(count)
 
 
 function vaccine_effect(I, x)
@@ -63,8 +61,8 @@ model = Model(Clp.Optimizer)
 @objective(model, Min,
                  sum( vaccine_effect(Infection[county[2]], x[county[1]]) for county in enumerate(keys(Infection)) )
 )
-@constraint(model, [i in 1:n], C*n[i]/B <= 1)
-@constraint(model, [i in 1:n], C*sum(n[i]) <= B)
+@constraint(model, [i in 1:N], C*n[i]/B <= 1)
+@constraint(model, [i in 1:N], C*sum(n[i]) <= B)
 
 optimize!(model)
 x_opt = [value(x[i]) for i in 1:N]
