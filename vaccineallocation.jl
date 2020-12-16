@@ -4,7 +4,7 @@ count = 0
 # fill a dictionary of real data
 Infection=Dict()
 for filename in readdir("./Data/")
-    Infection[chop(filename, tail=4)] = CSV.read("./Data/$(filename)")
+    Infection[chop(filename, tail=4)] = CSV.read("./Data/$(filename)", DataFrame)
     global count = count+1
 end
 
@@ -30,38 +30,32 @@ function vaccine_effect(I, x)
     end
     return effect
 end
-# effect = vaccine_effect(Infection["Mohave"],1)
-# println(effect)
 
 
-# r - return on investment for each portfolio asset
-# r_{ij} = return of ith asset on jth day
-# Return = []
-
-
-
-# Y - reference outcome
-#df = CSV.read("./data/0DJI.csv")[!,"AdjClose"]
-#Reference = [a-b for a in df, b in df]
+# testing
+plot(1:(length(I.Date)-1), dI)
+plot!(1:(length(I.Date)-1), vaccinated)
 
 N = count # number of counties
-B = 100000 # Budget for vaccines
+B = 1000 # Budget for vaccines
 C = 20 # cost per vaccine
-
-# p_j = probability that return of ith asset on jth day
-#Probability = [1/N for i in range(1, N, step=1)]
 
 model = Model(Clp.Optimizer)
 
 # x - choice of county
 @variable(model, x[1:N] >= 0)
 
+# n - number of vaccines allocated to each county
 @variable(model, n[1:N] >= 0)
 
 @objective(model, Min,
                  sum( vaccine_effect(Infection[county[2]], x[county[1]]) for county in enumerate(keys(Infection)) )
 )
-@constraint(model, [i in 1:N], C*n[i]/B <= 1)
+
+# bounded proportions constraint
+@constraint(model, [i in 1:N], C*n[i]/B <= x[i] )
+
+# total budget constraint
 @constraint(model, [i in 1:N], C*sum(n[i]) <= B)
 
 optimize!(model)
