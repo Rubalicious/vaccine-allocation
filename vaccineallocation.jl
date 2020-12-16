@@ -1,22 +1,37 @@
-using Clp, CSV, JuMP, DataFrames
+using Clp, CSV, JuMP, DataFrames, Plots
 
 count = 0
-# println(count)
-# readdir("./data/")
-Infection=[]
+# fill a dictionary of real data
+Infection=Dict()
 for filename in readdir("./Data/")
-    # println(filename)
-    df = CSV.read("./Data/$(filename)")
-    list = [a-b for a in df["Infected"], b in df["Infected"]]
-    # println(length(list))
-    append!(Infection,[list])
+    Infection[chop(filename, tail=4)] = CSV.read("./Data/$(filename)")
     global count = count+1
-    # print("\n")
 end
-println("files read in")
-print("\n")
-print(count)
-# print(df["AdjClose"])
+
+
+function vaccine_effect(I, x)
+    maxI = last(I.Infected)
+    dI = [I.Infected[s+1]-I.Infected[s] for s in 1:(length(I.Infected)-1)]
+
+    maxdI = maximum(dI)
+    normdI = [e/maxdI for e in dI]
+
+    # vaccine effect
+    Iv = [1-(maxI-x)/maxI for x in I.Infected]
+    dIv = [Iv[s+1]-Iv[s] for s in 1:(length(I.Infected)-1)]
+
+    vaccinated = [normdI[s]*(1-(normdI[s]-dIv[s])) for s in 1:(length(I.Infected)-2)]
+
+    if x == 1
+        global effect = sum(vaccinated)
+
+    elseif x == 0
+        global effect = sum(normdI)
+    end
+    return effect
+end
+# effect = vaccine_effect(Infection["Mohave"],1)
+# println(effect)
 
 
 # r - return on investment for each portfolio asset
@@ -28,34 +43,33 @@ print(count)
 # Y - reference outcome
 #df = CSV.read("./data/0DJI.csv")[!,"AdjClose"]
 #Reference = [a-b for a in df, b in df]
-# n = number of investment assets
-#n = count
-#N = length(Return[1])
+
+N = count # number of counties
+B = 100000 # Budget for vaccines
+C = 20 # cost per vaccine
+
 # p_j = probability that return of ith asset on jth day
 #Probability = [1/N for i in range(1, N, step=1)]
 
-#model = Model(Clp.Optimizer)
+model = Model(Clp.Optimizer)
 
-# x - amount of each portfolio asset
-#@variable(model, x[1:n] >= 0)
+# x - choice of county
+@variable(model, x[1:N] >= 0)
 
-#@variable(model, w[1:N, 1:N] >= 0)
+@variable(model, n[1:N] >= 0)
 
-#@objective(model, Min,
-#                  sum(Probability[j]*sum(Return[i,j]*x[i] for i in 1:n) for j in 1:N)
-#)
+@objective(model, Min,
+                 sum( vaccine_effect(Infection[county[2]], x[county[1]]) for county in enumerate(keys(Infection)) )
+)
+@constraint(model, [i in 1:N], C*n[i]/B <= 1)
+@constraint(model, [i in 1:N], C*sum(n[i]) <= B)
 
-#@constraint(model, [i in 1:n], sum(x[i]) <= 1)
-#@constraint(model, [j in 1:N], sum(Probability[k]*(w[j,k]-max(0,(Reference[j]-Reference[k]))) for k in 1:N) <= 0 )
-#@constraint(model, [j in 1:N, k in 1:N], Reference[j]-sum(Return[i,k]*x[i] for i in 1:n)<=w[j,k])
-
-
-#optimize!(model)
-#x_opt = [value(x[i]) for i in 1:n]
-# w_opt = [value(w[i,j]) for i in 1:3, j in 1:3]
+optimize!(model)
+x_opt = [value(x[i]) for i in 1:N]
+n_opt = [value(n[i]) for i in 1:N]
 
 
-#println()
-#println("Optimal objective = $(objective_value(model))")
-#println("x = ", x_opt)
-# println("w = ", w_opt)
+println()
+println("Optimal objective = $(objective_value(model))")
+println("x = ", x_opt)
+println("n = ", n_opt)
